@@ -185,7 +185,7 @@ struct ClientOpMetric {
           opFsync(prefix, "opFsync"),
           opFlush(prefix, "opFlush"),
           opRead(prefix, "opRead"),
-          opWrite(prefix, "opWrite") {}
+          opWrite(prefix, "opWrite"), {}
 };
 
 struct S3MultiManagerMetric {

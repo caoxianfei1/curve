@@ -333,6 +333,10 @@ class FuseClient {
 
     void InitQosParam();
 
+    std::shared_ptr<ClientOpMetric> GetMetric() {
+        return opMetric_;
+    }
+
  protected:
     CURVEFS_ERROR MakeNode(fuse_req_t req,
                            fuse_ino_t parent,
@@ -438,6 +442,8 @@ class FuseClient {
     std::atomic<bool> enableSumInDir_;
 
     std::shared_ptr<FSMetric> fsMetric_;
+
+    std::shared_ptr<ClientOpMetric> opMetric_;
 
     Mountpoint mountpoint_;
 
