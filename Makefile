@@ -79,3 +79,10 @@ check:
 
 test:
 	@bash util/test.sh $(stor) $(only)
+
+init:
+	@bash util/init.sh
+
+sdk:
+	@bash util/sdk.sh
+
