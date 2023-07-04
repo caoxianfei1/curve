@@ -249,6 +249,14 @@ http_archive(
   build_file = "//:thirdparties/spdlog.BUILD",
 )
 
+# incbin
+new_git_repository(
+    name = "incbin",
+    remote = "https://github.com/graphitemaster/incbin.git",
+    commit = "6e576cae5ab5810f25e2631f2e0b80cbe7dc8cbf",
+    build_file = "//:thirdparties/incbin.BUILD",
+)
+
 # Bazel platform rules.
 http_archive(
     name = "platforms",

@@ -35,6 +35,7 @@
 #include <vector>
 #include <atomic>
 
+#include "src/common/configuration.h"
 #include "curvefs/proto/common.pb.h"
 #include "curvefs/proto/mds.pb.h"
 #include "curvefs/src/client/common/config.h"
@@ -83,6 +84,7 @@ using rpcclient::MdsClient;
 using rpcclient::MdsClientImpl;
 using rpcclient::MetaServerClient;
 using rpcclient::MetaServerClientImpl;
+using ::curve::common::Configuration;
 using ::curvefs::client::filesystem::FileSystem;
 using ::curvefs::client::filesystem::EntryOut;
 using ::curvefs::client::filesystem::AttrOut;
