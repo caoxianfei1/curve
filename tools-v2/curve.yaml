@@ -1,0 +1,27 @@
+global:
+  httpTimeout: 500ms
+  rpcTimeout: 500ms
+  rpcRetryTimes: 1
+  maxChannelSize: 4
+  showError: false
+
+curvefs:
+  mdsAddr: 127.0.0.1:6700,127.0.0.1:6701,127.0.0.1:6702  # __CURVEADM_TEMPLATE__ ${cluster_mds_addr} __CURVEADM_TEMPLATE__
+  mdsDummyAddr: 127.0.0.1:7700,127.0.0.1:7701,127.0.0.1:7702  # __CURVEADM_TEMPLATE__ ${cluster_mds_dummy_addr} __CURVEADM_TEMPLATE__
+  etcdAddr: 127.0.0.1:23790,127.0.0.1:23791,127.0.0.1:23792  # __CURVEADM_TEMPLATE__ ${cluster_etcd_addr} __CURVEADM_TEMPLATE__
+  s3:
+    ak: ak
+    sk: sk
+    endpoint: http://localhost:9000
+    bucketname: bucketname
+    blocksize: 4 mib
+    chunksize: 64 mib
+curvebs:
+  mdsAddr: 59.111.93.76:6700,59.111.93.76:6701,59.111.93.76:6702
+  mdsDummyAddr: 59.111.93.76:7700,59.111.93.76:7701,59.111.93.76:7702
+  etcdAddr: 59.111.93.76:23790,59.111.93.76:23791,59.111.93.76:23792
+  snapshotAddr: 59.111.93.76:5555,59.111.93.76:5556,59.111.93.76:5557 
+  snapshotDummyAddr: 59.111.93.76:8100,59.111.93.76:8101,59.111.93.76:8102
+  root:
+    user: root
+    password: root_password
