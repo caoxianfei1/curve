@@ -20,83 +20,44 @@
  * Author: Jingli Chen (Wine93)
  */
 
-#include <vector>
+#ifndef CURVEFS_SRC_CLIENT_VFS_CONFIG_H_
+#define CURVEFS_SRC_CLIENT_VFS_CONFIG_H_
+
+#include <map>
 #include <string>
-
-#include "absl/strings/string_view.h"
-#include "absl/strings/str_split.h"
-#include "curvefs/src/client/vfs/utils.h"
-#include "curvefs/src/client/vfs/config.h"
-
-#define INCBIN_STYLE INCBIN_STYLE_SNAKE
-#define INCBIN_PREFIX g_
-#include <incbin.h>
-/* Usage: INCBIN(<<LABLE>>, <<FILE>>)
- *
- * Symbols defined by INCBIN
- * ------------------------------------------
- *  const unsigned char        g_client_conf_data[]  // g_<<LABLE>>_data
- *  const unsigned char* const g_client_conf_end;    // g_<<LABEL>>_end
- *  const unsinged int         g_client_conf_size;   // g_<<LABEL>>_size
- */
-//INCBIN(client_conf, "curvefs/conf/client.conf");
-INCBIN(client_conf, "/curve/curvefs/conf/client.conf");  // FIXME(Wine93): realpath
+#include <memory>
+#include <functional>
 
 namespace curvefs {
 namespace client {
 namespace vfs {
 
-std::shared_ptr<Configure> Configure::Default() {
-    auto cfg = std::make_shared<Configure>();
-    cfg->LoadString(reinterpret_cast<const char*>(g_client_conf_data));
-    return cfg;
-}
+class Configure {
+ public:
+    using IterateHandler = std::function<void(const std::string& key,
+                                              const std::string& value)>;
+ public:
+    Configure() = default;
 
-void Configure::LoadLine(const std::string& l) {
-    std::string line = strings::TrimSpace(l);
-    if (strings::HasPrefix(line, "#") || line.empty()) {
-        return;
-    }
+    static std::shared_ptr<Configure> Default();
 
-    // key
-    int idx1 = line.find("=");
-    std::string key = line.substr(0, idx1);
-    key = strings::TrimSpace(key);
+    void LoadString(const std::string& in);
 
-    // value
-    int idx2 = line.find("#");
-    std::string value = line.substr(idx2 + 1, idx2 - idx1 - 1);
-    value = strings::TrimSpace(value);
+    bool Get(const std::string& key, std::string* value);
 
-    m_[key] = value;
-}
+    void Set(const std::string& key, const std::string& value);
 
-void Configure::LoadString(const std::string& in) {
-    std::vector<std::string> lines = strings::Split(in, "\n");
-    for (const auto& line : lines) {
-        LoadLine(line);
-    }
-}
+    void Iterate(IterateHandler handler);
 
-bool Configure::Get(const std::string& key, std::string* value) {
-    auto iter = m_.find(key);
-    if (iter == m_.end()) {
-        return false;
-    }
-    *value = iter->second;
-    return true;
-}
+ private:
+    void LoadLine(const std::string& line);
 
-void Configure::Set(const std::string& key, const std::string& value) {
-    m_[key] = value;
-}
-
-void Configure::Iterate(IterateHandler handler) {
-    for (const auto& item : m_) {
-        handler(item.first, item.second);
-    }
-}
+ private:
+    std::map<std::string, std::string> m_;
+};
 
 }  // namespace vfs
 }  // namespace client
 }  // namespace curvefs
+
+#endif  // CURVEFS_SRC_CLIENT_VFS_CONFIG_H_

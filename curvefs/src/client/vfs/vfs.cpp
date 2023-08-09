@@ -46,6 +46,18 @@ using ::curvefs::client::logger::StrFormat;
 using ::curvefs::client::filesystem::IsSymlink;
 using ::curvefs::client::filesystem::StrErr;
 using ::curvefs::client::filesystem::StrMode;
+using ::curvefs::client::common::PermissionOption;
+
+int VFS::SetPermission(uint32_t uid, 
+                    const std::vector<uint32_t>& gids, 
+                    uint16_t umask,
+                    bool needCheck) {
+    uid_ = uid;
+    gids_ = gids;
+    PermissionOption option{uid, gids, umask, needCheck};
+    permission_ = std::make_shared<Permission>(Permission(option));
+    return SysErr(CURVEFS_ERROR::OK);
+}
 
 Configuration VFS::Convert(std::shared_ptr<Configure> cfg) {
     Configuration config;
@@ -316,20 +328,24 @@ int VFS::FStat(int fd, struct stat* stat) {
     return SysErr(rc);
 }
 
+int VFS::Chown(const std::string &path, uint32_t uid, uint32_t gid) {
+    // CURVEFS_ERROR rc;
+    // AccessLogGuard log([&](){
+    //     return StrFormat("chown (%d): %s", fd, StrErr(rc));
+    // });
+    // TODO:
+    return 0;
+}
+
 CURVEFS_ERROR VFS::Lookup(const std::string& pathname,
                           bool followSymlink,
                           Entry* entry) {
     Ino parent = ROOTINODEID;
     std::vector<std::string> names = filepath::Split(pathname);
     for (const auto& name : names) {  // recursive lookup entry
-        bool yes = permission_->Check(parent, name);
-        if (!yes) {
-            return CURVEFS_ERROR::NO_PERMISSION;
-        }
-
         // lookup
         Ino ino;
-        yes = entryCache_->Get(parent, name, &ino);
+        bool yes = entryCache_->Get(parent, name, &ino);
         if (!yes) {
             EntryOut entryOut;
             auto rc = op_->Lookup(parent, name, &entryOut);
@@ -355,6 +371,11 @@ CURVEFS_ERROR VFS::Lookup(const std::string& pathname,
             attrCache_->Put(ino, attrOut.attr, attrOut.attrTimeout);
         }
         entry->attr = std::move(attr);
+
+        yes = permission_->Check(entry->ino, WANT_EXEC, &entry->attr);
+        if (!yes) {
+            return CURVEFS_ERROR::NO_PERMISSION;
+        }
 
         // parent
         parent = entry->ino;

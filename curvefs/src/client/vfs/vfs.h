@@ -46,6 +46,8 @@ class VFS {
  public:
     VFS() = default;
 
+    int SetPermission(uint32_t uid, const std::vector<uint32_t>& gids, uint16_t umask, bool needCheck);
+
     // NOTE: |cfg| include all configures for client.conf
     int Mount(const std::string& fsname,
               const std::string& mountpoint,
@@ -82,6 +84,8 @@ class VFS {
 
     int FStat(int fd, struct stat* stat);
 
+    int Chown(const std::string &path, uint32_t uid, uint32_t gid);
+
  private:
     Configuration Convert(std::shared_ptr<Configure> cfg);
 
@@ -96,6 +100,8 @@ class VFS {
     std::shared_ptr<FileHandlers> handlers_;
     std::shared_ptr<EntryCache> entryCache_;
     std::shared_ptr<AttrCache> attrCache_;
+    uint32_t uid_;
+    std::vector<uint32_t> gids_;
 };
 
 }  // namespace vfs

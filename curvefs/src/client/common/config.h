@@ -175,12 +175,11 @@ struct RefreshDataOption {
     uint32_t refreshDataIntervalSec = 30;
 };
 
-// { vfs option
-
 struct PermissionOption {
-    std::string users;
-    std::string groups;
-    uint32_t umask;
+    uint32_t uid;
+    std::vector<uint32_t> gids;
+    uint16_t umask;
+    bool needCheck;
     // XXX
 };
 
