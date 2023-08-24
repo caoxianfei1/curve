@@ -30,7 +30,7 @@ namespace vfs {
 namespace {
 
 struct fuse_req {
-    fuse_ctx ctx;
+    struct fuse_ctx* ctx;
 };
 
 struct FuseContext {
@@ -40,12 +40,25 @@ struct FuseContext {
         ctx.gid = 0;
 
         req = fuse_req();
-        req.ctx = ctx;
+        req.ctx = &ctx;
 
         fi = fuse_file_info();
     }
+    FuseContext(PermissionOption option) {
+        psOption = option;
+    }
 
     fuse_req_t Request() {
+        ctx = fuse_ctx();
+        ctx.uid = psOption.uid;
+        ctx.gid = psOption.gid;
+        ctx.umask = psOption.umask;
+
+        req = fuse_req();
+        req.ctx = &ctx;       
+
+        fi = fuse_file_info();
+
         return reinterpret_cast<fuse_req_t>(&req);
     }
 
@@ -56,16 +69,18 @@ struct FuseContext {
     fuse_req req;
     fuse_ctx ctx;
     fuse_file_info fi;
+    PermissionOption psOption;
 };
 
 };  // namespace
 
+using ::curvefs::client::common::PermissionOption;
 OperationsImpl::OperationsImpl(std::shared_ptr<FuseClient> client)
     : client_(client),
       fs_(client->GetFileSystem()) {
-    ctx_ = OperationsCtx();
-    ctx_.uid = 0;  // TODO(Wine93): uid and gid
-    ctx_.gid = 0;
+    // ctx_ = OperationsCtx();
+    // ctx_.uid = 0;  // TODO(Wine93): uid and gid
+    // ctx_.gid = 0;
 }
 
 // init
@@ -81,13 +96,15 @@ CURVEFS_ERROR OperationsImpl::MkDir(Ino parent,
                                     const std::string& name,
                                     uint16_t mode) {
     EntryOut entryOut;
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
+    const struct fuse_ctx *ctxx = fuse_req_ctx(req);
+    // printf("req.ctx.uid = %d, req.ctx.gid = %d\n", ctxx->uid, ctxx->gid);
     return client_->FuseOpMkDir(req, parent, name.c_str(), mode, &entryOut);
 }
 
 CURVEFS_ERROR OperationsImpl::OpenDir(Ino ino, uint64_t* fh) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto fi = ctx.FileInfo();
     CURVEFS_ERROR rc = fs_->OpenDir(ino, fi);
     if (rc == CURVEFS_ERROR::OK) {
@@ -100,21 +117,21 @@ CURVEFS_ERROR OperationsImpl::OpenDir(Ino ino, uint64_t* fh) {
 CURVEFS_ERROR OperationsImpl::ReadDir(Ino ino,
                                       uint64_t fh,
                                       std::shared_ptr<DirEntryList>* entries) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto fi = ctx.FileInfo();
     fi->fh = fh;
     return fs_->ReadDir(ino, fi, entries);
 }
 
 CURVEFS_ERROR OperationsImpl::CloseDir(Ino ino) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     return client_->FuseOpRelease(req, ino, fi);
 }
 
 CURVEFS_ERROR OperationsImpl::RmDir(Ino parent, const std::string& name) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     return client_->FuseOpRmDir(req, parent, name.c_str());
 }
@@ -123,7 +140,7 @@ CURVEFS_ERROR OperationsImpl::RmDir(Ino parent, const std::string& name) {
 CURVEFS_ERROR OperationsImpl::Create(Ino parent,
                                      const std::string& name,
                                      uint16_t mode) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     EntryOut entryOut;
@@ -133,7 +150,7 @@ CURVEFS_ERROR OperationsImpl::Create(Ino parent,
 }
 
 CURVEFS_ERROR OperationsImpl::Open(Ino ino, uint32_t flags) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     FileOut fileOut;
@@ -146,7 +163,7 @@ CURVEFS_ERROR OperationsImpl::Read(Ino ino,
                                    char* buffer,
                                    size_t size,
                                    size_t* nread) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     return client_->FuseOpRead(req, ino, size, offset, fi, buffer, nread);
@@ -157,7 +174,7 @@ CURVEFS_ERROR OperationsImpl::Write(Ino ino,
                                     char* buffer,
                                     size_t size,
                                     size_t* nwritten) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     FileOut fileOut;
@@ -172,21 +189,21 @@ CURVEFS_ERROR OperationsImpl::Write(Ino ino,
 }
 
 CURVEFS_ERROR OperationsImpl::Flush(Ino ino) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     return client_->FuseOpFlush(req, ino, fi);
 }
 
 CURVEFS_ERROR OperationsImpl::Close(Ino ino) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     return client_->FuseOpRelease(req, ino, fi);
 }
 
 CURVEFS_ERROR OperationsImpl::Unlink(Ino parent, const std::string& name) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     return client_->FuseOpUnlink(req, parent, name.c_str());
 }
@@ -195,7 +212,7 @@ CURVEFS_ERROR OperationsImpl::Unlink(Ino parent, const std::string& name) {
 CURVEFS_ERROR OperationsImpl::Lookup(Ino parent,
                                      const std::string& name,
                                      EntryOut* entryOut) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto rc = client_->FuseOpLookup(req, parent, name.c_str(), entryOut);
     if (rc == CURVEFS_ERROR::OK) {
@@ -205,7 +222,7 @@ CURVEFS_ERROR OperationsImpl::Lookup(Ino parent,
 }
 
 CURVEFS_ERROR OperationsImpl::GetAttr(Ino ino, AttrOut* attrOut) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     auto rc = client_->FuseOpGetAttr(req, ino, fi, attrOut);
@@ -216,7 +233,7 @@ CURVEFS_ERROR OperationsImpl::GetAttr(Ino ino, AttrOut* attrOut) {
 }
 
 CURVEFS_ERROR OperationsImpl::SetAttr(Ino ino, struct stat* stat, int toSet) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     auto fi = ctx.FileInfo();
     AttrOut attrOut;
@@ -224,7 +241,7 @@ CURVEFS_ERROR OperationsImpl::SetAttr(Ino ino, struct stat* stat, int toSet) {
 }
 
 CURVEFS_ERROR OperationsImpl::ReadLink(Ino ino, std::string* link) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     return client_->FuseOpReadLink(req, ino, link);
 }
@@ -233,14 +250,14 @@ CURVEFS_ERROR OperationsImpl::Rename(Ino parent,
                                      const std::string& name,
                                      Ino newparent,
                                      const std::string& newname) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     return client_->FuseOpRename(req, parent, name.c_str(),
                                  newparent, newname.c_str(), 0);
 }
 
 CURVEFS_ERROR OperationsImpl::StatFS(Ino ino, struct statvfs* statvfs) {
-    auto ctx = FuseContext();
+    auto ctx = FuseContext(psOption_);
     auto req = ctx.Request();
     return client_->FuseOpStatFs(req, ino, statvfs);
 }
@@ -248,6 +265,10 @@ CURVEFS_ERROR OperationsImpl::StatFS(Ino ino, struct statvfs* statvfs) {
 // utility
 void OperationsImpl::Attr2Stat(InodeAttr* attr, struct stat* stat) {
     return fs_->Attr2Stat(attr, stat);
+}
+
+void OperationsImpl::SetPermissionOption(PermissionOption option) {
+    psOption_ = option;
 }
 
 }  // namespace vfs
