@@ -41,6 +41,8 @@ using ::curvefs::client::FuseClient;
 using ::curvefs::client::filesystem::FileSystem;
 using ::curvefs::client::filesystem::DirEntryList;
 using ::curvefs::client::filesystem::CURVEFS_ERROR;
+using ::curvefs::client::common::PermissionOption;
+
 
 class Operations {
  public:
@@ -109,14 +111,17 @@ class Operations {
 
     // utility
     virtual void Attr2Stat(InodeAttr* attr, struct stat* stat) = 0;
-};
 
+<<<<<<< HEAD
 // Must be synchronized with Fuse if changed.
 #define VFS_SET_ATTR_MODE  (1 << 0)
 
 struct OperationsCtx {
     uint64_t uid;
     uint64_t gid;
+=======
+    virtual void SetPermissionOption(PermissionOption option) = 0;
+>>>>>>> 0bd95c45 (Add permisson check for java sdk)
 };
 
 class OperationsImpl : public Operations {
@@ -189,10 +194,12 @@ class OperationsImpl : public Operations {
     // utility
     void Attr2Stat(InodeAttr* attr, struct stat* stat) override;
 
+    void SetPermissionOption(PermissionOption option) override;
+
  private:
     std::shared_ptr<FuseClient> client_;
     std::shared_ptr<FileSystem> fs_;
-    OperationsCtx ctx_;
+    PermissionOption psOption_;
 };
 
 }  // namespace vfs

@@ -17,8 +17,10 @@
 /*
  * Project: Curve
  * Created Date: 2023-07-04
- * Author: Jingli Chen (Wine93)
+ * Author: caoxianfei1
  */
+
+#include <algorithm>
 
 #include "curvefs/src/client/vfs/meta.h"
 #include "curvefs/src/client/vfs/permission.h"
@@ -30,10 +32,52 @@ namespace vfs {
 Permission::Permission(PermissionOption option)
     : option_(option) {}
 
-bool Permission::Check(Ino ino, const std::string& name) {
-    return true;
+uint16_t Permission::GetMode(uint16_t type, uint16_t mode) {
+    uint16_t umask = option_.umask;
+    mode = mode & (~umask);
+    return type | mode;  // e.g. S_IFREG | mode
+}
+
+CURVEFS_ERROR Permission::Check(const InodeAttr& attr, uint16_t want) {
+    auto perm = GetFilePermission(attr);
+    if ((perm & want) != want) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+    return CURVEFS_ERROR::OK;
+}
+
+bool Permission::GidInGroup(uint16_t gid) {
+    auto gids = option_.gids;
+    return std::find(gids.begin(), gids.end(), gid) != gids.end();
+}
+
+CURVEFS_ERROR Permission::GetFilePermission(const InodeAttr& attr) {
+    uint16_t mode = attr.mode();
+    if (attr.uid == option_.uid) {
+        mode = mode >> 6;
+    } else if (GidInGroup(attr.gid)) {
+        mode = mode >> 3;
+    }
+    return mode & 7;
+}
+
+uint16_t Permission::GetExpectPermission(uint32_t flags) {
+    uint16_t want = 0;
+    swicth(flags & O_ACCMODE) {
+        case O_RDONLY:
+            want = WANT_READ;
+        case O_WRONLY:
+            want = WANT_WRITE;
+        case O_RDWR:
+            want = WANT_READ | WANT_WRITE;
+    }
+    if (flags & O_TRUNC) {
+        want |= WANT_WRITE;
+    }
+    return want;
 }
 
 }  // namespace vfs
 }  // namespace client
 }  // namespace curvefs
+

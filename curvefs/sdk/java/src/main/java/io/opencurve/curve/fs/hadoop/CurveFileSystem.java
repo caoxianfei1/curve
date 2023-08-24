@@ -7,16 +7,22 @@ import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.*;
 import org.apache.hadoop.fs.permission.FsPermission;
+import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.hadoop.util.Progressable;
 
 import io.opencurve.curve.fs.libfs.CurveFSMount;
 import io.opencurve.curve.fs.libfs.CurveFSStat;
 import io.opencurve.curve.fs.libfs.CurveFSStatVFS;
 
+import java.io.BufferedReader;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.URI;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 
 /**
@@ -28,6 +34,12 @@ public class CurveFileSystem extends FileSystem {
     private static final Log LOG = LogFactory.getLog(CurveFileSystem.class);
     private URI uri;
     private Path workingDir;
+    private String name; // fs name
+    private UserGroupInformation ugi;
+    private FsPermission uMask;
+
+    private Map<String, FileStatus> lastFileStatus = new HashMap<>();
+
     private CurveFSProto curve = null;
 
     /**
@@ -57,6 +69,75 @@ public class CurveFileSystem extends FileSystem {
         return uri;
     }
 
+    private boolean isEmpty(String str) {
+        return str == null || str.trim().isEmpty();
+    }
+
+    private String getConf(Configuration conf, String key, String value) {
+        String v = conf.get("curvefs." + key, value);
+        if (name != null && !name.equals("")) {
+          v = conf.get("curvefs." + name + "." + key, v);
+        }
+        if (v != null)
+          v = v.trim();
+        return v;
+    }
+
+    public String getScheme() {
+        return uri.getScheme();
+    }
+
+    private String readFile(String file) {
+        Path path = new Path(file);
+        URI uri = path.toUri();
+        FileSystem fs;
+        try {
+            URI defaultUri = getDefaultUri(getConf());
+            if (uri.getScheme() == null) {
+                uri = defaultUri;
+            } else {
+                if (uri.getAuthority() == null && (uri.getScheme().equals(defaultUri.getScheme()))) {
+                    uri = defaultUri;
+                }
+            }
+            if (getScheme().equals(uri.getScheme()) &&
+                    (name != null && name.equals(uri.getAuthority()))) {
+                fs = this;
+            } else {
+                fs = path.getFileSystem(getConf());
+            }
+
+            FileStatus lastStatus = lastFileStatus.get(file);
+            FileStatus status = fs.getFileStatus(path);
+            if (lastStatus != null && status.getModificationTime() == lastStatus.getModificationTime()
+                    && status.getLen() == lastStatus.getLen()) {
+                return null;
+            }
+            FSDataInputStream in = fs.open(path);
+            String res = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining("\n"));
+            in.close();
+            lastFileStatus.put(file, status);
+            return res;
+        } catch (IOException e) {
+            LOG.warn(String.format("read %s failed", file), e);
+            return null;
+        }
+    }
+
+    private void updateUidAndGrouping(String uidFile, String groupFile) {
+        String uidstr = null;
+        if (uidFile != null && !"".equals(uidFile.trim())) {
+          uidstr = readFile(uidFile);
+        }
+        String grouping = null;
+        if (groupFile != null && !"".equals(groupFile.trim())) {
+          grouping = readFile(groupFile);
+        }
+
+        curve.updateguids(uidstr, grouping);
+    }
+
+
     @Override
     public void initialize(URI uri, Configuration conf) throws IOException {
         super.initialize(uri, conf);
@@ -68,7 +149,39 @@ public class CurveFileSystem extends FileSystem {
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
         this.workingDir = getHomeDirectory();
 
+        this.name = conf.get("curvefs.name", null);
+        if (null == name) {
+            throw new IOException("name is required");
+        }
 
+        // get user and group default values(current user)
+        this.ugi = UserGroupInformation.getCurrentUser();
+        String user = ugi.getShortUserName();
+        String group = "nogroup";
+        String groupingFile = getConf(conf, "groups", null);
+        if (isEmpty(groupingFile) && ugi.getGroupNames().length > 0) {
+            group = String.join(",", ugi.getGroupNames());
+        }
+        String superuser = getConf(conf, "superuser", "hdfs");
+        String supergroup = getConf(conf, "supergroup", "supergroup");
+
+        uMask = FsPermission.getUMask(conf);
+        String umaskStr = getConf(conf, "umask", null);
+        if (!isEmpty(umaskStr)) {
+            uMask = new FsPermission(umaskStr);
+        }
+
+        int rc = curve.setguids(name, user, group, superuser, supergroup, uMask.toShort());
+        if (rc < 0) {
+            throw new IOException("curvefs initialized failed for curvefs://" + name);
+        }
+
+        String uidFile = getConf(conf, "users", null);
+        if (!isEmpty(uidFile) || !isEmpty(groupingFile)) {
+            updateUidAndGrouping(uidFile, groupingFile);
+            // 定时刷新先跳过
+            // refreshUidAndGrouping(uidFile, groupingFile);
+        }
     }
 
     /**
@@ -190,7 +303,7 @@ public class CurveFileSystem extends FileSystem {
         FileStatus status = new FileStatus(stat.size, stat.isDir(),
                 curve.get_file_replication(path), stat.blksize, stat.m_time,
                 stat.a_time, new FsPermission((short) stat.mode),
-                System.getProperty("user.name"), System.getProperty("group.name"), path.makeQualified(this));
+                stat.owner, stat.group, path.makeQualified(this));
 
         return status;
     }
@@ -509,5 +622,13 @@ public class CurveFileSystem extends FileSystem {
     @Override
     public String getCanonicalServiceName() {
         return null; // Does not support Token
+    }
+
+    @Override
+    public void setOwner(Path path, String username, String groupname) throws IOException {
+        int rc = curve.setowner(path, username, groupname);
+        if (rc < 0) {
+            throw new IOException("set owner failed" + path + " username=" + username + " group=" + groupname);
+        }
     }
 }

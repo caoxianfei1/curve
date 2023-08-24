@@ -69,6 +69,18 @@ bool VFS::Convert(std::shared_ptr<Configure> cfg, Configuration* out) {
     return true;
 }
 
+using ::curvefs::client::common::PermissionOption;
+CURVEFS_ERROR VFS::SetPermission(uint32_t uid,
+                    const std::vector<uint32_t>& gids,
+                    uint16_t umask,
+                    bool needCheck) {
+    PermissionOption option{uid, gids[0], gids, umask, needCheck};
+    psOption_ = option;
+    permission_ = std::make_shared<Permission>(Permission(option));
+    op_->SetPermissionOption(option);
+    return CURVEFS_ERROR::OK;
+}
+
 CURVEFS_ERROR VFS::Mount(const std::string& fsname,
                          const std::string& mountpoint,
                          std::shared_ptr<Configure> cfg) {
@@ -86,6 +98,7 @@ CURVEFS_ERROR VFS::Mount(const std::string& fsname,
 
     std::shared_ptr<FuseClient> client;
     auto helper = Helper();
+    helper.Ini
     auto uuid = UUIDGenerator().GenerateUUID();  // FIXME: mountpoint
     auto yes = helper.NewClientForSDK(fsname, uuid, &config, &client);
     if (!yes) {
@@ -94,6 +107,7 @@ CURVEFS_ERROR VFS::Mount(const std::string& fsname,
     }
 
     op_ = std::make_shared<OperationsImpl>(client);
+    permission_ = std::make_shared<Permission>(config.)
     rc = CURVEFS_ERROR::OK;
     return rc;
 }
@@ -132,6 +146,12 @@ CURVEFS_ERROR VFS::DoMkDir(const std::string& path, uint16_t mode) {
         return CURVEFS_ERROR::NOT_A_DIRECTORY;
     }
 
+    rc = permission_->Check(parent.attr, Permission::WANT_WRITE);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+
+    mode = permission_.GetMode(S_IFDIR, mode);
     rc = op_->MkDir(parent.ino, filepath::Filename(path), mode, &entryOut);
     if (rc == CURVEFS_ERROR::OK) {
         PurgeEntryCache(parent.ino, filepath::Filename(path));
@@ -162,7 +182,6 @@ CURVEFS_ERROR VFS::OpenDir(const std::string& path, DirStream* stream) {
         return StrFormat("opendir (%s): %s [fh:%d]",
                          path, StrErr(rc), stream->fh);
     });
-
     Entry entry;
     rc = Lookup(path, true, &entry);
     if (rc != CURVEFS_ERROR::OK) {
@@ -183,7 +202,6 @@ CURVEFS_ERROR VFS::ReadDir(DirStream* stream, DirEntry* dirEntry) {
                          stream->fh, stream->offset, StrErr(rc), nread);
     });
 
-    // TODO(Wine93): read once.
     auto entries = std::make_shared<DirEntryList>();
     rc = op_->ReadDir(stream->ino, stream->fh, &entries);
     if (rc != CURVEFS_ERROR::OK) {
@@ -218,9 +236,19 @@ CURVEFS_ERROR VFS::RmDir(const std::string& path) {
     AccessLogGuard log([&](){
         return StrFormat("rmdir (%s): %s", path, StrErr(rc));
     });
-
     Entry parent;
     rc = Lookup(filepath::ParentDir(path), true, &parent);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+    // check write for path
+    Entry entry;
+    rc = Lookup(path, true, &entry);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+
+    rc = permission_->Check(parent.attr, Permission::WANT_WRITE);
     if (rc != CURVEFS_ERROR::OK) {
         return rc;
     }
@@ -247,8 +275,13 @@ CURVEFS_ERROR VFS::Create(const std::string& path, uint16_t mode) {
         return rc;
     }
 
-    rc = op_->Create(parent.ino, filepath::Filename(path), S_IFREG | mode,
-                     &entryOut);
+    rc = permission_->Check(parent.attr, Permission::WANT_WRITE);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+
+    mode = permission_.GetMode(S_IFREG, mode);
+    rc = op_->Create(parent.ino, filepath::Filename(path), mode, &entryOut);
     if (rc == CURVEFS_ERROR::OK) {
         PurgeEntryCache(parent.ino, filepath::Filename(path));
     }
@@ -266,6 +299,12 @@ CURVEFS_ERROR VFS::Open(const std::string& path,
 
     Entry entry;
     rc = Lookup(path, true, &entry);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+
+    uint16_t want =
+    rc = permission_->Check(entry.attr, want);
     if (rc != CURVEFS_ERROR::OK) {
         return rc;
     }
@@ -297,7 +336,17 @@ CURVEFS_ERROR VFS::LSeek(uint64_t fd, uint64_t offset, int whence) {
         return rc;
     }
 
+    // check write
     AttrOut attrOut;
+    rc = op_->GetAttr(fh->ino, &attrOut);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+    yes = permission_->Check(fh->ino, WANT_WRITE, &attrOut.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+
     switch (whence) {
     case SEEK_SET:
         fh->offset = offset;
@@ -342,6 +391,17 @@ CURVEFS_ERROR VFS::Read(uint64_t fd,
         return rc;
     }
 
+    // check read
+    AttrOut attrOut;
+    rc = op_->GetAttr(fh->ino, &attrOut);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+    yes = permission_->Check(fh->ino, WANT_READ, &attrOut.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+
     offset = fh->offset;
     rc = op_->Read(fh->ino, fh->offset, buffer, count, nread);
     if (rc == CURVEFS_ERROR::OK) {
@@ -361,11 +421,23 @@ CURVEFS_ERROR VFS::Write(uint64_t fd,
                          fd, count, offset, StrErr(rc), *nwritten);
     });
 
+
     std::shared_ptr<FileHandler> fh;
     bool yes = handlers_->GetHandler(fd, &fh);
     if (!yes) {
         rc = CURVEFS_ERROR::BAD_FD;
         return rc;
+    }
+
+    // check write
+    AttrOut attrOut;
+    rc = op_->GetAttr(fh->ino, &attrOut);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+    yes = permission_->Check(fh->ino, WANT_WRITE, &attrOut.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
     }
 
     offset = fh->offset;
@@ -388,6 +460,18 @@ CURVEFS_ERROR VFS::FSync(uint64_t fd) {
     if (!yes) {
         rc = CURVEFS_ERROR::BAD_FD;
         return rc;
+    }
+
+    // check write
+    AttrOut attrOut;
+    rc = op_->GetAttr(fh->ino, &attrOut);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+
+    yes = permission_->Check(fh->ino, WANT_WRITE, &attrOut.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
     }
 
     rc = op_->Flush(fh->ino);
@@ -431,6 +515,12 @@ CURVEFS_ERROR VFS::Unlink(const std::string& path) {
         return rc;
     }
 
+    // check write
+    bool yes = permission_->Check(parent.ino, WANT_WRITE, &parent.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+
     rc = op_->Unlink(parent.ino, filepath::Filename(path));
     if (rc == CURVEFS_ERROR::OK) {
         PurgeEntryCache(parent.ino, filepath::Filename(path));
@@ -455,11 +545,18 @@ CURVEFS_ERROR VFS::LStat(const std::string& path, struct stat* stat) {
         return StrFormat("lstat (%s): %s%s",
                          path, StrErr(rc), StrAttr(entry.attr));
     });
-
     rc = Lookup(path, false, &entry);
-    if (rc == CURVEFS_ERROR::OK) {
-        op_->Attr2Stat(&entry.attr, stat);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
     }
+
+    // check read
+    bool yes = permission_->Check(entry.ino, WANT_READ, &entry.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+
+    op_->Attr2Stat(&entry.attr, stat);
     return rc;
 }
 
@@ -478,9 +575,17 @@ CURVEFS_ERROR VFS::FStat(uint64_t fd, struct stat* stat) {
     }
 
     rc = op_->GetAttr(fh->ino, &attrOut);
-    if (rc == CURVEFS_ERROR::OK) {
-        op_->Attr2Stat(&attrOut.attr, stat);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
     }
+
+    // check read
+    yes = permission_->Check(fh->ino, WANT_READ, &attrOut.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+
+    op_->Attr2Stat(&attrOut.attr, stat);
     return rc;
 }
 
@@ -490,10 +595,17 @@ CURVEFS_ERROR VFS::SetAttr(const char* path, struct stat* stat, int toSet) {
         return StrFormat("setattr (%s,0x%X): %s", path, toSet, StrErr(rc));
     });
 
+
     Entry entry;
     rc = Lookup(path, true, &entry);
     if (rc != CURVEFS_ERROR::OK) {
         return rc;
+    }
+
+    // check write
+    bool yes = permission_->Check(entry.ino, WANT_WRITE, &entry.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
     }
 
     rc = op_->SetAttr(entry.ino, stat, toSet);
@@ -516,6 +628,12 @@ CURVEFS_ERROR VFS::Chmod(const char* path, uint16_t mode) {
         return rc;
     }
 
+    // check write
+    bool yes = permission_->Check(entry.ino, WANT_WRITE, &entry.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+
     struct stat stat;
     stat.st_mode = ((entry.attr.mode() >> 9) << 9) | mode;
     rc = op_->SetAttr(entry.ino, &stat, VFS_SET_ATTR_MODE);
@@ -531,6 +649,18 @@ CURVEFS_ERROR VFS::Rename(const std::string& oldpath,
     AccessLogGuard log([&](){
         return StrFormat("rename (%s, %s): %s", oldpath, newpath, StrErr(rc));
     });
+
+    // check write for file
+    Entry entry;
+    rc = Lookup(oldpath, true, &entry);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+
+    bool yes = permission_->Check(entry.ino, WANT_WRITE, &entry.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
 
     Entry oldParent;
     rc = Lookup(filepath::ParentDir(oldpath), true, &oldParent);
@@ -550,6 +680,30 @@ CURVEFS_ERROR VFS::Rename(const std::string& oldpath,
         PurgeEntryCache(oldParent.ino, filepath::Filename(oldpath));
         PurgeEntryCache(newParent.ino, filepath::Filename(newpath));
     }
+    return rc;
+}
+
+CURVEFS_ERROR VFS::Chown(const std::string &path, uint32_t uid, uint32_t gid) {
+    CURVEFS_ERROR rc;
+    AccessLogGuard log([&](){
+        return StrFormat("chown (%s): %s", path, StrErr(rc));
+    });
+
+    Entry entry;
+    rc = Lookup(path, true, &entry);
+    if (rc != CURVEFS_ERROR::OK) {
+        return rc;
+    }
+
+    bool yes = permission_->Check(entry.ino, WANT_WRITE, &entry.attr);
+    if (!yes) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+
+    struct stat stat;
+    stat.st_uid = uid;
+    stat.st_gid = gid;
+    rc = op_->SetAttr(entry.ino, &stat, FUSE_SET_ATTR_UID | FUSE_SET_ATTR_GID);
     return rc;
 }
 
@@ -633,10 +787,11 @@ CURVEFS_ERROR VFS::Lookup(const std::string& path,
     std::vector<std::string> names = filepath::Split(path);
     for (int i = 0; i < names.size(); i++) {
         std::string name = names[i];
-        bool yes = permission_->Check(parent, name);
-        if (!yes) {
-            rc = CURVEFS_ERROR::NO_PERMISSION;
-            break;
+        if (parent != ROOT_INO) {
+            rc = permission_->Check(entry->attr, WANT_EXEC);
+            if (rc != CURVEFS_ERROR::OK) {
+                return rc;
+            }
         }
 
         rc = DoLookup(parent, name, &entry->ino);
@@ -647,7 +802,6 @@ CURVEFS_ERROR VFS::Lookup(const std::string& path,
         if (rc != CURVEFS_ERROR::OK) {
             break;
         }
-
         // follow symbolic link
         bool last = (i == names.size() - 1);
         if ((!last || followSymlink) && IsSymlink(entry->attr)) {
@@ -666,6 +820,12 @@ CURVEFS_ERROR VFS::Lookup(const std::string& path,
 
         // parent
         parent = entry->ino;
+        if (i == names.size() - 2) {
+            bool yes = permission_->Check(parent, WANT_EXEC, &entry->attr);
+            if (!yes) {
+                return CURVEFS_ERROR::NO_PERMISSION;
+            }
+        }
     }
 
     if (rc != CURVEFS_ERROR::OK) {

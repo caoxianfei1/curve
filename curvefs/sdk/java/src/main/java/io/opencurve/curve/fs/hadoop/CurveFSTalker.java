@@ -5,6 +5,8 @@ package io.opencurve.curve.fs.hadoop;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+
+import io.opencurve.curve.fs.CurveMount;
 import io.opencurve.curve.fs.libfs.CurveFSMount;
 import io.opencurve.curve.fs.libfs.CurveFSStat;
 import io.opencurve.curve.fs.libfs.CurveFSStatVFS;
@@ -165,5 +167,18 @@ class CurveFSTalker extends CurveFSProto {
 
   int read(int fd, byte[] buf, long size, long offset) throws IOException {
     return (int)mount.read(fd, buf, size, offset);
+  }
+
+  int setguids(String name, String user, String grouping, String superUser, String superGroup, short umask) {
+    int rc = (int)mount.setguids(name, user, grouping, superUser, superGroup, umask);
+    return rc;
+  }
+
+  int updateguids(String uids, String grouping) {
+    return (int)mount.updateguids(uids, grouping);
+  }
+
+  int setowner(Path path, String username, String groupname) throws IOException {
+    return mount.setowner(pathString(path), username, groupname);
   }
 }

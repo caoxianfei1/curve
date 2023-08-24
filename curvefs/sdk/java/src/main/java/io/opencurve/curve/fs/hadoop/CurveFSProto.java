@@ -38,4 +38,8 @@ abstract class CurveFSProto {
   abstract int read(int fd, byte[] buf, long size, long offset) throws IOException;
   abstract void mkdirs(Path path, int mode) throws IOException;
   abstract void fsync(int fd) throws IOException;
+
+  abstract int setguids(String name, String user, String grouping, String superUser, String superGroup, short umask);
+  abstract int updateguids(String uids, String grouping);
+  abstract int setowner(Path path, String username, String groupname) throws IOException;
 }
