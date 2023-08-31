@@ -82,7 +82,9 @@ public class CurveFSMount {
 
     static {
         accessLog("loadLibrary");
-        CurveFSNativeLoader.getInstance().loadLibrary();
+        try {
+            CurveFSNativeLoader.getInstance().loadLibrary();
+        } catch(Exception e) {}
     }
 
     protected void finalize() throws Throwable {

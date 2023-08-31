@@ -17,6 +17,14 @@
         <flink.version>1.15.4</flink.version>
     </properties>
 
+	<build>
+        <resources>
+			<resource>
+				<directory>native/build</directory>
+			</resource>
+		</resources>
+	</build>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.hadoop</groupId>
@@ -38,6 +46,13 @@
             <version>${flink.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.13.1</version>
+			<scope>test</scope>
+		</dependency>
 
         <dependency>
             <groupId>org.apache.flink</groupId>

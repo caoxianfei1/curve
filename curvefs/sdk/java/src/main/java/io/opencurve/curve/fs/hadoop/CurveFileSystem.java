@@ -16,9 +16,7 @@ import io.opencurve.curve.fs.libfs.CurveFSStatVFS;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.InetAddress;
 import java.net.URI;
-import java.util.ArrayList;
 
 
 /**
@@ -30,7 +28,7 @@ public class CurveFileSystem extends FileSystem {
     private static final Log LOG = LogFactory.getLog(CurveFileSystem.class);
     private URI uri;
     private Path workingDir;
-    private CurveFsProto curve = null;
+    private CurveFSProto curve = null;
 
     /**
      * Create a new CurveFileSystem.
@@ -63,12 +61,14 @@ public class CurveFileSystem extends FileSystem {
     public void initialize(URI uri, Configuration conf) throws IOException {
         super.initialize(uri, conf);
         if (curve == null) {
-            curve = new CurveTalker(conf, LOG);
+            curve = new CurveFSTalker(conf, LOG);
         }
         curve.initialize(uri, conf);
         setConf(conf);
         this.uri = URI.create(uri.getScheme() + "://" + uri.getAuthority());
         this.workingDir = getHomeDirectory();
+
+
     }
 
     /**
@@ -91,7 +91,7 @@ public class CurveFileSystem extends FileSystem {
         CurveFSStat stat = new CurveFSStat();
         curve.fstat(fd, stat);
 
-        CurveInputStream istream = new CurveInputStream(getConf(), curve, fd,
+        CurveFSInputStream istream = new CurveFSInputStream(getConf(), curve, fd,
                 stat.size, bufferSize);
         return new FSDataInputStream(istream);
     }
@@ -130,7 +130,7 @@ public class CurveFileSystem extends FileSystem {
             progress.progress();
         }
 
-        CurveOutputStream ostream = new CurveOutputStream(getConf(), curve, fd, bufferSize);
+        CurveFSOutputStream ostream = new CurveFSOutputStream(getConf(), curve, fd, bufferSize);
         return new FSDataOutputStream(ostream, statistics);
     }
 
@@ -302,7 +302,7 @@ public class CurveFileSystem extends FileSystem {
             progress.progress();
         }
 
-        OutputStream ostream = new CurveOutputStream(getConf(), curve, fd,
+        OutputStream ostream = new CurveFSOutputStream(getConf(), curve, fd,
                 bufferSize);
         return new FSDataOutputStream(ostream, statistics);
     }

@@ -10,10 +10,10 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 /**
- * The CurveFs implementation of AbstractFileSystem.
+ * The CurveFS implementation of AbstractFileSystem.
  * This impl delegates to the old FileSystem
  */
-public class CurveFs extends DelegateToFileSystem {
+public class CurveFS extends DelegateToFileSystem {
   /**
    * This constructor has the signature needed by
    * {@link AbstractFileSystem#createFileSystem(URI, Configuration)}.
@@ -23,7 +23,7 @@ public class CurveFs extends DelegateToFileSystem {
    * @throws IOException
    * @throws URISyntaxException
    */
-  CurveFs(final URI theUri, final Configuration conf) throws IOException,
+  CurveFS(final URI theUri, final Configuration conf) throws IOException,
     URISyntaxException {
     super(theUri, new CurveFileSystem(conf), conf, CurveFileSystemFactory.SCHEME, true);
   }

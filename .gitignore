@@ -173,3 +173,4 @@ curvefs/sdk/java/target/
 curvefs/sdk/output/
 hadoop-test/
 nnbench-test/
+curvefs/sdk/java/native/build

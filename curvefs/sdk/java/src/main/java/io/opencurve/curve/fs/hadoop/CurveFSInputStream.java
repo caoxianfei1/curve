@@ -1,12 +1,9 @@
-// -*- mode:Java; tab-width:2; c-basic-offset:2; indent-tabs-mode:t -*-
-
 package io.opencurve.curve.fs.hadoop;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSInputStream;
-
 import io.opencurve.curve.fs.libfs.CurveFSMount;
 
 import java.io.IOException;
@@ -16,15 +13,15 @@ import java.io.IOException;
  * An {@link FSInputStream} for a CurveFileSystem and corresponding
  * Curve instance.
  */
-public class CurveInputStream extends FSInputStream {
-  private static final Log LOG = LogFactory.getLog(CurveInputStream.class);
+public class CurveFSInputStream extends FSInputStream {
+  private static final Log LOG = LogFactory.getLog(CurveFSInputStream.class);
   private boolean closed;
 
   private int fileHandle;
 
   private long fileLength;
 
-  private CurveFsProto curve;
+  private CurveFSProto curve;
 
   private byte[] buffer;
   private int bufPos = 0;
@@ -38,7 +35,7 @@ public class CurveInputStream extends FSInputStream {
    * @param flength The current length of the file. If the length changes
    * you will need to close and re-open it to access the new data.
    */
-  public CurveInputStream(Configuration conf, CurveFsProto curvefs,
+  public CurveFSInputStream(Configuration conf, CurveFSProto curvefs,
       int fh, long flength, int bufferSize) {
     // Whoever's calling the constructor is responsible for doing the actual curve_open
     // call and providing the file handle.

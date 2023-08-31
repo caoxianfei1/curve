@@ -13,7 +13,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.URI;
 
-abstract class CurveFsProto {
+abstract class CurveFSProto {
 
   abstract void initialize(URI uri, Configuration conf) throws IOException;
   abstract int __open(Path path, int flags, int mode) throws IOException;
@@ -38,11 +38,4 @@ abstract class CurveFsProto {
   abstract int read(int fd, byte[] buf, long size, long offset) throws IOException;
   abstract void mkdirs(Path path, int mode) throws IOException;
   abstract void fsync(int fd) throws IOException;
-//  abstract int get_stripe_unit_granularity();
-//  abstract String get_file_pool_name(int fd);
-//  abstract int get_pool_id(String pool_name) throws IOException;;
-//  abstract int get_pool_replication(int poolid) throws IOException;
-  //abstract InetAddress get_osd_address(int osd) throws IOException;
-  //abstract Bucket[] get_osd_crush_location(int osd) throws IOException;
-  //abstract CurveFileExtent get_file_extent(int fd, long offset) throws IOException;
 }

@@ -5,22 +5,20 @@ package io.opencurve.curve.fs.hadoop;
 import org.apache.commons.logging.Log;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-
 import io.opencurve.curve.fs.libfs.CurveFSMount;
 import io.opencurve.curve.fs.libfs.CurveFSStat;
 import io.opencurve.curve.fs.libfs.CurveFSStatVFS;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.URI;
 import java.util.Map;
 
-class CurveTalker extends CurveFsProto {
+class CurveFSTalker extends CurveFSProto {
 
   private CurveFSMount mount;
 
-  public CurveTalker(Configuration conf, Log log) {
+  public CurveFSTalker(Configuration conf, Log log) {
     mount = null;
   }
 
@@ -168,13 +166,4 @@ class CurveTalker extends CurveFsProto {
   int read(int fd, byte[] buf, long size, long offset) throws IOException {
     return (int)mount.read(fd, buf, size, offset);
   }
-
-  //InetAddress get_osd_address(int osd) throws IOException {
-  //}
-
-  //Bucket[] get_osd_crush_location(int osd) throws IOException {
-  //}
-
-  //CurveFileExtent get_file_extent(int fd, long offset) throws IOException {
-  //}
 }

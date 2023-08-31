@@ -1,11 +1,8 @@
-// -*- mode:Java; tab-width:2; c-basic-offset:2; indent-tabs-mode:t -*-
-
 package io.opencurve.curve.fs.hadoop;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
-
 import io.opencurve.curve.fs.libfs.CurveFSMount;
 
 import java.io.IOException;
@@ -22,11 +19,11 @@ import java.io.OutputStream;
  *  libcurvefs. Currently it might be useful to reduce JNI crossings, but not
  *  much more.
  */
-public class CurveOutputStream extends OutputStream {
-  private static final Log LOG = LogFactory.getLog(CurveOutputStream.class);
+public class CurveFSOutputStream extends OutputStream {
+  private static final Log LOG = LogFactory.getLog(CurveFSOutputStream.class);
   private boolean closed;
 
-  private CurveFsProto curve;
+  private CurveFSProto curve;
 
   private int fileHandle;
 
@@ -38,7 +35,7 @@ public class CurveOutputStream extends OutputStream {
    * @param conf The FileSystem configuration.
    * @param fh The Curve filehandle to connect to.
    */
-  public CurveOutputStream(Configuration conf, CurveFsProto curvefs,
+  public CurveFSOutputStream(Configuration conf, CurveFSProto curvefs,
       int fh, int bufferSize) {
     curve = curvefs;
     fileHandle = fh;
