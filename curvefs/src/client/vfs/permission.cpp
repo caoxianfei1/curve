@@ -39,6 +39,10 @@ uint16_t Permission::GetMode(uint16_t type, uint16_t mode) {
 }
 
 CURVEFS_ERROR Permission::Check(const InodeAttr& attr, uint16_t want) {
+    if (attr.uid() =) {
+
+    }
+
     auto perm = GetFilePermission(attr);
     if ((perm & want) != want) {
         return CURVEFS_ERROR::NO_PERMISSION;

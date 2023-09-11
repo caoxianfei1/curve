@@ -35,6 +35,8 @@ using ::curvefs::client::common::PermissionOption;
 
 class Permission {
  public:
+    const
+
     enum {
         NONE = 0,
         WANT_EXEC = 1,
@@ -50,6 +52,8 @@ class Permission {
     CURVEFS_ERROR Check(const InodeAttr& attr, uins32_t want);
 
  private:
+    bool IsSuperUser();
+
     bool GidInGroup(uint16_t gid);
 
     uint16_t GetFilePermission(const InodeAttr& attr);
