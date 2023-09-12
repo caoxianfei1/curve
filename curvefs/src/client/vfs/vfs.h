@@ -43,17 +43,10 @@ using ::curve::common::Configuration;
 using ::curvefs::client::common::VFSOption;
 using ::curvefs::client::common::PermissionOption;
 
-<<<<<<< HEAD
-=======
-// Must be synchronized with Fuse if changed.
-#define VFS_SET_ATTR_MODE  (1 << 0)
-#define VFS_SET_ATTR_UID   (1 << 1)
-#define VFS_SET_ATTR_GID   (1 << 2)
-
->>>>>>> 0bd95c45 (Add permisson check for java sdk)
 class VFS {
  public:
     VFS();
+
     // NOTE: |cfg| include all configures for client.conf
     CURVEFS_ERROR Mount(const std::string& fsname,
                         const std::string& mountpoint,
@@ -104,18 +97,16 @@ class VFS {
 
     CURVEFS_ERROR FStat(uint64_t fd, struct stat* stat);
 
-    CURVEFS_ERROR SetAttr(const char* path,
+    CURVEFS_ERROR SetAttr(const std::string& path,
                           struct stat* stat,
                           int toSet);
 
-    CURVEFS_ERROR Chmod(const char* path, uint16_t mode);
+    CURVEFS_ERROR Chmod(const std::string& path, uint16_t mode);
+
+    CURVEFS_ERROR Chown(const std::string& path, uint16_t uid, uint16_t gid);
 
     CURVEFS_ERROR Rename(const std::string& oldpath,
                          const std::string& newpath);
-
-    CURVEFS_ERROR Chown(const std::string& path,
-                         uint32_t uid,
-                         uint32_t gid);
 
     // utility
     void Attr2Stat(InodeAttr* attr, struct stat* stat);

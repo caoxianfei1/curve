@@ -45,6 +45,7 @@ using Ino = uint64_t;
 
 const Ino ROOT_INO = ::curvefs::ROOTINODEID;
 
+// Must be synchronized with dir_stream_t if changed
 struct DirStream {
     Ino ino;
     uint64_t fh;
