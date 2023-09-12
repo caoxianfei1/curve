@@ -152,7 +152,7 @@ std::string Helper::Type2Str(FSType t) {
 }
 
 bool Helper::NewClient(const MountOption mount,
-                       Configuration* cfg,
+                       FuseClientOption option,
                        std::shared_ptr<FuseClient>* client) {
     // 1) init log
     bool yes = InitLog(cfg);
@@ -161,8 +161,6 @@ bool Helper::NewClient(const MountOption mount,
     }
 
     // 2) get fsinfo from mds
-    FuseClientOption option;
-    InitOption(cfg, &option);
     FsInfo info;
     yes = GetFSInfoFromMDS(option.mdsOpt, mount.fsName, &info);
     if (!yes) {
@@ -202,6 +200,7 @@ bool Helper::NewClient(const MountOption mount,
 
 bool Helper::NewClientForFuse(const MountOption* mount,
                               std::shared_ptr<FuseClient>* client) {
+    /*
     Configuration cfg;
     bool yes = LoadCfg(mount->conf, &cfg);
     if (!yes) {
@@ -209,18 +208,22 @@ bool Helper::NewClientForFuse(const MountOption* mount,
     }
     RewriteMDSAddr(&cfg, mount->mdsAddr);
     return NewClient(*mount, &cfg, client);
+    */
+   return true;
 }
 
 bool Helper::NewClientForSDK(const std::string& fsname,
                              const std::string& mountpoint,
-                             Configuration* cfg,
+                             FuseClientOption option,
                              std::shared_ptr<FuseClient>* client) {
     struct MountOption mount;
+    auto uuid = UUIDGenerator().GenerateUUID();  // FIXME: mountpoint
+
     mount.mountPoint = new char[500];
     mount.fsName = new char[100];
     mount.fsType = new char[100];
 
-    strcpy(mount.mountPoint, mountpoint.c_str());
+    strcpy(mount.mountPoint, uuid.c_str());
     strcpy(mount.fsName, fsname.c_str());
     strcpy(mount.fsType, Type2Str(FSType::TYPE_S3).c_str());
     bool yes = NewClient(mount, cfg, client);

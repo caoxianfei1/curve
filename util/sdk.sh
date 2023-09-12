@@ -8,34 +8,41 @@ g_hadoop_etc="${g_hadoop_prefix}/etc/hadoop/core-site.xml"
 g_libcurvefs_jni="/curve/bazel-bin/curvefs/sdk/java/native/libcurvefs_jni.so"
 g_curvefs_hadoop_jar="/curve/curvefs/sdk/java/target/curvefs-hadoop-1.0-SNAPSHOT.jar"
 
-# build libcurvefs_jni.so
-(
-    cd /curve/curvefs/sdk/java/src/main/java &&
-    javac -h /curve/curvefs/sdk/java/native/ io/opencurve/curve/fs/libfs/CurveFSMount.java
-)
-(
-    cd /curve &&
-    bazel build --compilation_mode=dbg --config=gcc7-later //curvefs/sdk/java/native:curvefs_jni
-)
-(
-    rm -rf /curve/curvefs/sdk/java/native/build &&
-    mkdir -p /curve/curvefs/sdk/java/native/build &&
-    cp "$(realpath ${g_libcurvefs_jni})" /curve/curvefs/sdk/java/native/build
-)
+build_jni() {
+    (
+        cd /curve/curvefs/sdk/java/src/main/java &&
+        javac -h /curve/curvefs/sdk/java/native/ io/opencurve/curve/fs/libfs/CurveFSMount.java
+    )
+    (
+        cd /curve &&
+        bazel build --compilation_mode=dbg --config=gcc7-later //curvefs/sdk/java/native:curvefs_jni
+    )
+    (
+        rm -rf /curve/curvefs/sdk/java/native/build &&
+        mkdir -p /curve/curvefs/sdk/java/native/build &&
+        cp "$(realpath ${g_libcurvefs_jni})" /curve/curvefs/sdk/java/native/build
+    )
+}
 
-# build curvefs-hadoop
-(
-    cd /curve/curvefs/sdk/java &&
-    rm -rf target/classes/libcurvefs_jni.so &&
-    mvn package
-)
+build_curvefs_hadoop() {
+    (
+        cd /curve/curvefs/sdk/java &&
+        rm -rf target/classes/libcurvefs_jni.so &&
+        mvn package
+    )
+}
+
+setup_hadoop() {
+    (
+        cd "${g_hadoop_lib}" &&
+        rm -f curvefs-hadoop-1.0-SNAPSHOT.jar &&
+        cp "${g_curvefs_hadoop_jar}" curvefs-hadoop-1.0-SNAPSHOT.jar
+    )
+}
+
 
 # setup hadoop
-(
-    cd "${g_hadoop_lib}" &&
-    rm -f curvefs-hadoop-1.0-SNAPSHOT.jar &&
-    cp "${g_curvefs_hadoop_jar}" curvefs-hadoop-1.0-SNAPSHOT.jar
-)
+
 
 # output
 g_output=/curve/curvefs/sdk/output

@@ -1,11 +1,11 @@
 
-User Guide
+CurveFS VFS Design
 ===
 
 Permission
 ---
 
-`uid/gid` AND `euid/egid`
+`uid/gid` AND `euid/egid` AND `suid/sgid`
 
 ```C++
 euid = uid
@@ -19,4 +19,3 @@ if (sgid != NULL) {
     egid = sgid;
 }
 ```
-

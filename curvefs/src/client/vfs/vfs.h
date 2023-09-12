@@ -41,11 +41,12 @@ namespace vfs {
 
 using ::curve::common::Configuration;
 using ::curvefs::client::common::VFSOption;
-using ::curvefs::client::common::PermissionOption;
+using ::curvefs::client::common::UserPermissionOption;
+using ::curvefs::client::common::FuseClientOption;
 
 class VFS {
  public:
-    VFS();
+    VFS() = default;
 
     // NOTE: |cfg| include all configures for client.conf
     CURVEFS_ERROR Mount(const std::string& fsname,
@@ -112,7 +113,8 @@ class VFS {
     void Attr2Stat(InodeAttr* attr, struct stat* stat);
 
  private:
-    bool Convert(std::shared_ptr<Configure> cfg, Configuration* out);
+    CURVEFS_ERROR InitOption(std::shared_ptr<Configure> cfg,
+                             FuseClientOption* option);
 
     void PurgeAttrCache(Ino ino);
 
@@ -133,7 +135,6 @@ class VFS {
                          Entry* entry);
 
  private:
-    VFSOption option_;
     std::shared_ptr<Operations> op_;
     std::shared_ptr<Permission> permission_;
     std::shared_ptr<FileHandlers> handlers_;

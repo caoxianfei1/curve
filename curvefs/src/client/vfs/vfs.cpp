@@ -54,19 +54,13 @@ using ::curvefs::client::filesystem::StrErr;
 using ::curvefs::client::filesystem::StrMode;
 using ::curvefs::client::filesystem::StrAttr;
 
-VFS::VFS() {
-    permission_ = std::make_shared<Permission>(option_.permissionOption)
-    auto o = option_.vfsCacheOption;
-    entryCache_ = std::make_shared<EntryCache>(o.entryCacheLruSize);
-    attrCache_ = std::make_shared<AttrCache>(o.attrCacheLruSize);
-    handlers_ = std::make_shared<FileHandlers>();
-}
-
-bool VFS::Convert(std::shared_ptr<Configure> cfg, Configuration* out) {
+CURVEFS_ERROR VFS::InitOption(std::shared_ptr<Configure> cfg,
+                              FuseClientOption* option) {
+    Configuration conf;
     cfg->Iterate([&](const std::string& key, const std::string& value){
-        out->SetStringValue(key, value);
+        conf.SetStringValue(key, value);
     });
-    return true;
+    Helper().InitOption(&conf, option);
 }
 
 CURVEFS_ERROR VFS::Mount(const std::string& fsname,
@@ -77,23 +71,23 @@ CURVEFS_ERROR VFS::Mount(const std::string& fsname,
         return StrFormat("mount (%s,%s): %s", fsname, mountpoint, StrErr(rc));
     });
 
-    Configuration config;
-    bool ok = Convert(cfg, &config);
-    if (!ok) {
-        rc = CURVEFS_ERROR::INTERNAL;
-        return rc;
-    }
-
+    // NOTE: client will automatic mount after created
+    FuseClientOption option;
     std::shared_ptr<FuseClient> client;
-    auto helper = Helper();
-    auto uuid = UUIDGenerator().GenerateUUID();  // FIXME: mountpoint
-    auto yes = helper.NewClientForSDK(fsname, uuid, &config, &client);
-    if (!yes) {
-        rc = CURVEFS_ERROR::INTERNAL;
+    InitOption(cfg, &option);
+    rc = Helper().NewClientForSDK(fsname, mountpoint, option, &client);
+    if (rc != CURVEFS_ERROR::OK) {
         return rc;
     }
 
-    op_ = std::make_shared<OperationsImpl>(client);
+    auto vfsOption = option.vfsOption;
+    auto userPerm = vfsOption.userPermissionOption;
+    auto cacheOption = vfsOption.vfsCacheOption;
+    op_ = std::make_shared<OperationsImpl>(client, userPerm);
+    permission_ = std::make_shared<Permission>(userPerm);
+    entryCache_ = std::make_shared<EntryCache>(cacheOption.entryCacheLruSize);
+    attrCache_ = std::make_shared<AttrCache>(cacheOption.attrCacheLruSize);
+    handlers_ = std::make_shared<FileHandlers>();
     rc = CURVEFS_ERROR::OK;
     return rc;
 }
