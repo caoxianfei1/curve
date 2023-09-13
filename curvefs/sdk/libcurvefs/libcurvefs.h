@@ -41,29 +41,6 @@ using ::curvefs::client::vfs::Configure;
 using ::curvefs::client::vfs::VFS;
 
 typedef struct {
-    // permission
-    bool checkPermission();
-    bool isSuperUser(const std::string user, const std::vector<std::string> groups);
-    uint32_t lookupUid(std::string user);
-    uint32_t lookupGid(std::string group);
-    std::string uid2name(uint32_t uid);
-    std::string gid2name(uint32_t gid);
-    std::vector<uint32_t> lookupGids(const std::vector<std::string>& groups);
-
-    uint32_t Uid() { return uid_; }
-    uint32_t Gid() { return gid_; }
-    std::vector<uint32_t> Gids() { return gids_; }
-
-    std::shared_ptr<Mapping> m_;
-    std::string user_;
-    std::string group_;
-    std::string superUser_;
-    std::string superGroup_;
-    uint32_t uid_;
-    uint32_t gid_;
-    std::vector<uint32_t> gids_;
-    uint32_t umask_;
-
     std::shared_ptr<Configure> cfg;
     std::shared_ptr<VFS> vfs;
 } curvefs_mount_t;
@@ -98,7 +75,6 @@ void curvefs_conf_set(uintptr_t instance_ptr,
 int curvefs_mount(uintptr_t instance_ptr,
                   const char* fsname,
                   const char* mountpoint);
-
 
 int curvefs_umonut(uintptr_t instance_ptr);
 
@@ -160,14 +136,14 @@ int curvefs_setattr(uintptr_t instance_ptr,
 
 int curvefs_chmod(uintptr_t instance_ptr, const char* path, uint16_t mode);
 
+int curvefs_chown(uintptr_t instance_ptr,
+                  const char* path,
+                  const uint16_t uid,
+                  const uint16_t gid);
+
 int curvefs_rename(uintptr_t instance_ptr,
                    const char* oldpath,
                    const char* newpath);
-
-int curvefs_chown(uintptr_t instance_ptr,
-                    const char* path,
-                    uint16_t uid,
-                    uint16_t gid);
 
 #ifdef __cplusplus
 }

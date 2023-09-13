@@ -16,8 +16,8 @@
 
 /*
  * Project: Curve
- * Created Date: 2023-07-04
- * Author: caoxianfei1
+ * Created Date: 2023-07-07
+ * Author: Jingli Chen (Wine93)
  */
 
 #ifndef CURVEFS_SRC_CLIENT_VFS_PERMISSION_H_
@@ -31,35 +31,36 @@ namespace curvefs {
 namespace client {
 namespace vfs {
 
-using ::curvefs::client::common::PermissionOption;
+using ::curvefs::client::common::UserPermissionOption;
 
 class Permission {
  public:
-    const
-
     enum {
-        NONE = 0,
         WANT_EXEC = 1,
         WANT_WRITE = 2,
         WANT_READ = 4,
     };
 
  public:
-    explicit Permission(PermissionOption option);
+    explicit Permission(UserPermissionOption option);
 
-    uint16_t GetMode(uint16_t type, uint16_t mode);
+    uint16_t GetFileMode(uint16_t type, uint16_t mode);
 
-    CURVEFS_ERROR Check(const InodeAttr& attr, uins32_t want);
+    uint16_t WantPermission(uint32_t flags);
 
- private:
-    bool IsSuperUser();
+    bool IsSuperUser(uint16_t uid);
+
+    bool IsFileOwner(const InodeAttr& attr);
 
     bool GidInGroup(uint16_t gid);
 
+    CURVEFS_ERROR Check(const InodeAttr& attr, uint16_t want);
+
+ private:
     uint16_t GetFilePermission(const InodeAttr& attr);
 
  private:
-    PermissionOption option_;
+    UserPermissionOption userPerm_;
 };
 
 }  // namespace vfs

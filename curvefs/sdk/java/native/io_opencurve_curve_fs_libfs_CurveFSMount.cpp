@@ -100,7 +100,6 @@ static void fill_curvestat(JNIEnv* env,
     env->SetLongField(j_curvestat, curvestat_blksize_fid, stat->st_blksize);
     env->SetLongField(j_curvestat, curvestat_blocks_fid, stat->st_blocks);
 
-    jclass curvestat_class = env->GetObjectClass(j_curvestat);
     // mtime
     uint64_t time = stat->st_mtim.tv_sec;
     time *= 1000;
@@ -271,48 +270,6 @@ JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurveFSUmount
     (JNIEnv* env, jclass, jlong j_instance) {
     uintptr_t instance = static_cast<uintptr_t>(j_instance);
     return curvefs_umonut(instance);
-}
-
-// nativeSetGuids: curvefs_set_guids
-JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeSetGuids
-  (JNIEnv *env, jclass, jlong j_instance, jstring j_name, jstring j_user, jstring j_grouping, jstring j_superUser, jstring j_superGroup, jshort j_umask) {
-    uintptr_t instance = static_cast<uintptr_t>(j_instance);
-    const char* name = env->GetStringUTFChars(j_name, NULL);
-    const char* user = env->GetStringUTFChars(j_user, NULL);
-    const char* grouping = env->GetStringUTFChars(j_grouping, NULL);
-    const char* superUser = env->GetStringUTFChars(j_superUser, NULL);
-    const char* superGroup = env->GetStringUTFChars(j_superGroup, NULL);
-    uint16_t umask = static_cast<uint16_t>(j_umask);
-    auto defer = absl::MakeCleanup([&]() {
-        env->ReleaseStringUTFChars(j_name, name);
-        env->ReleaseStringUTFChars(j_user, user);
-        env->ReleaseStringUTFChars(j_grouping, grouping);
-        env->ReleaseStringUTFChars(j_superUser, superUser);
-        env->ReleaseStringUTFChars(j_superGroup, superGroup);
-    });
-
-    int rc = curvefs_set_guids(instance, name, user, grouping, superUser, superGroup, umask);
-    if (rc != 0) {
-        handle_error(env, rc);
-    }
-    return rc;
-}
-
-// nativeUpdateGuids: curvefs_update_guids
-JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeUpdateGuids
-  (JNIEnv *env, jclass, jlong j_instance, jstring j_uids, jstring j_grouping) {
-    uintptr_t instance = static_cast<uintptr_t>(j_instance);
-    const char* uids = env->GetStringUTFChars(j_uids, NULL);
-    const char* grouping = env->GetStringUTFChars(j_grouping, NULL);
-    auto defer = absl::MakeCleanup([&]() {
-        env->ReleaseStringUTFChars(j_uids, uids);
-        env->ReleaseStringUTFChars(j_grouping, grouping);
-    });
-    auto rc = curvefs_update_guids(instance, uids, grouping);
-    if (rc != 0) {
-        handle_error(env, rc);
-    }
-    return 0;
 }
 
 // nativeCurveFSMkDirs: curvefs_mkdirs

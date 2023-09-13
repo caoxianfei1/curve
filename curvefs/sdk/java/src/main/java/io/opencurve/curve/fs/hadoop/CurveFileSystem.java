@@ -127,11 +127,11 @@ public class CurveFileSystem extends FileSystem {
     private void updateUidAndGrouping(String uidFile, String groupFile) {
         String uidstr = null;
         if (uidFile != null && !"".equals(uidFile.trim())) {
-          uidstr = readFile(uidFile);
+          uidstr = readFile(uidFile); // /etc/passwd
         }
         String grouping = null;
         if (groupFile != null && !"".equals(groupFile.trim())) {
-          grouping = readFile(groupFile);
+          grouping = readFile(groupFile); // /etc/group
         }
 
         curve.updateguids(uidstr, grouping);

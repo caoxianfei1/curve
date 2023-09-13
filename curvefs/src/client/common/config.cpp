@@ -293,18 +293,34 @@ void InitKVClientManagerOpt(Configuration *conf,
                               &config->getThreadPooln);
 }
 
+void GetGids(Configuration* c,
+             const std::string& key,
+             std::vector<uint16_t>* gids) {
+    std::string str;
+    std::vector<std::string> ss;
+    c->GetValueFatalIfFail("vfs.userPermission.gids", &str);
+    curve::common::SplitString(str, ",", &ss);
+
+    uint32_t gid;
+    for (const auto& s : ss) {
+        LOG_IF(FATAL, curve::common::StringToInt(s, &gid))
+            << "Invalid `" << key << "`: " << str;
+    gids->push_back(static_cast<uint16_t>(gid));
+    }
+}
+
 void InitVFSOption(Configuration* c, VFSOption* option) {
     {  // vfs cache option
         auto o = &option->vfsCacheOption;
         c->GetValueFatalIfFail("vfs.entryCache.lruSize", &o->entryCacheLruSize);
         c->GetValueFatalIfFail("vfs.attrCache.lruSize", &o->attrCacheLruSize);
     }
-    // {  // permission option
-    //     auto o = &option->permissionOption;
-    //     c->GetValueFatalIfFail("vfs.permission.users", &o->users);
-    //     c->GetValueFatalIfFail("vfs.permission.groups", &o->groups);
-    //     c->GetValueFatalIfFail("vfs.permission.umask", &o->umask);  // FIXME: x
-    // }
+    {  // user permission option
+        auto o = &option->userPermissionOption;
+        c->GetValueFatalIfFail("vfs.userPermission.uid", &o->uid);
+        c->GetValueFatalIfFail("vfs.userPermission.umask", &o->umask);
+        GetGids(c, "vfs.userPermission.gids", &o->gids);
+    }
 }
 
 void InitFileSystemOption(Configuration* c, FileSystemOption* option) {

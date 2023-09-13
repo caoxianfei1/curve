@@ -230,6 +230,15 @@ int curvefs_chmod(uintptr_t instance_ptr, const char* path, uint16_t mode) {
     return SysErr(rc);
 }
 
+int curvefs_chown(uintptr_t instance_ptr,
+                  const char* path,
+                  const uint16_t uid,
+                  const uint16_t gid) {
+    auto mount = get_instance(instance_ptr);
+    auto rc = mount->vfs->Chown(path, uid, gid);
+    return SysErr(rc);
+}
+
 int curvefs_rename(uintptr_t instance_ptr,
                    const char* oldpath,
                    const char* newpath) {

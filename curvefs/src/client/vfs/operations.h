@@ -41,8 +41,7 @@ using ::curvefs::client::FuseClient;
 using ::curvefs::client::filesystem::FileSystem;
 using ::curvefs::client::filesystem::DirEntryList;
 using ::curvefs::client::filesystem::CURVEFS_ERROR;
-using ::curvefs::client::common::PermissionOption;
-
+using ::curvefs::client::common::UserPermissionOption;
 
 class Operations {
  public:
@@ -111,22 +110,50 @@ class Operations {
 
     // utility
     virtual void Attr2Stat(InodeAttr* attr, struct stat* stat) = 0;
+};
 
-<<<<<<< HEAD
 // Must be synchronized with Fuse if changed.
-#define VFS_SET_ATTR_MODE  (1 << 0)
+enum {
+    SET_ATTR_MODE = (1 << 0),
+    SET_ATTR_UID = (1 << 1),
+    SET_ATTR_GID = (1 << 2),
+};
 
-struct OperationsCtx {
-    uint64_t uid;
-    uint64_t gid;
-=======
-    virtual void SetPermissionOption(PermissionOption option) = 0;
->>>>>>> 0bd95c45 (Add permisson check for java sdk)
+struct FuseContext {
+    struct mock_fuse_req {
+        struct fuse_ctx* ctx;
+    };
+
+    FuseContext(uint16_t uid, uint16_t gid, uint32_t umask) {
+        // ctx
+        ctx = fuse_ctx();
+        ctx.uid = uid;
+        ctx.gid = gid;
+        ctx.umask = umask;
+        // req
+        mock_req = mock_fuse_req();
+        mock_req.ctx = &ctx;
+        // fi
+        file_info = fuse_file_info();
+    }
+
+    fuse_req_t GetRequest() {
+        return reinterpret_cast<fuse_req_t>(&mock_req);
+    }
+
+    fuse_file_info* GetFileInfo() {
+        return &file_info;
+    }
+
+    fuse_ctx ctx;
+    mock_fuse_req mock_req;
+    fuse_file_info file_info;
 };
 
 class OperationsImpl : public Operations {
  public:
-    explicit OperationsImpl(std::shared_ptr<FuseClient> client);
+    OperationsImpl(std::shared_ptr<FuseClient> client,
+                   UserPermissionOption userPerm);
 
     // init
     CURVEFS_ERROR Umount() override;
@@ -194,12 +221,13 @@ class OperationsImpl : public Operations {
     // utility
     void Attr2Stat(InodeAttr* attr, struct stat* stat) override;
 
-    void SetPermissionOption(PermissionOption option) override;
+ private:
+    std::shared_ptr<FuseContext> NewFuseContext();
 
  private:
     std::shared_ptr<FuseClient> client_;
     std::shared_ptr<FileSystem> fs_;
-    PermissionOption psOption_;
+    UserPermissionOption userPerm_;
 };
 
 }  // namespace vfs

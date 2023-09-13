@@ -25,6 +25,7 @@
 
 #include <cstdint>
 #include <string>
+#include <vector>
 
 #include "curvefs/src/client/common/common.h"
 #include "curvefs/proto/common.pb.h"
@@ -177,13 +178,10 @@ struct RefreshDataOption {
 
 // { vfs option
 
-struct PermissionOption {
-    uint32_t uid;
-    uint32_t gid;
-    std::vector<uint32_t> gids;
-    uint32_t umask;
-    bool needCheck;
-    // XXX
+struct UserPermissionOption {
+    uint16_t uid;
+    std::vector<uint16_t> gids;
+    uint16_t umask;
 };
 
 struct VFSCacheOption {
@@ -193,7 +191,7 @@ struct VFSCacheOption {
 
 struct VFSOption {
     VFSCacheOption vfsCacheOption;
-    PermissionOption permissionOption;
+    UserPermissionOption userPermissionOption;
 };
 // }
 

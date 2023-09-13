@@ -16,8 +16,8 @@
 
 /*
  * Project: Curve
- * Created Date: 2023-07-04
- * Author: caoxianfei1
+ * Created Date: 2023-07-07
+ * Author: Jingli Chen (Wine93)
  */
 
 #include <algorithm>
@@ -29,43 +29,16 @@ namespace curvefs {
 namespace client {
 namespace vfs {
 
-Permission::Permission(PermissionOption option)
-    : option_(option) {}
+Permission::Permission(UserPermissionOption userPerm)
+    : userPerm_(userPerm) {}
 
-uint16_t Permission::GetMode(uint16_t type, uint16_t mode) {
+uint16_t Permission::GetFileMode(uint16_t type, uint16_t mode) {
     uint16_t umask = option_.umask;
     mode = mode & (~umask);
     return type | mode;  // e.g. S_IFREG | mode
 }
 
-CURVEFS_ERROR Permission::Check(const InodeAttr& attr, uint16_t want) {
-    if (attr.uid() =) {
-
-    }
-
-    auto perm = GetFilePermission(attr);
-    if ((perm & want) != want) {
-        return CURVEFS_ERROR::NO_PERMISSION;
-    }
-    return CURVEFS_ERROR::OK;
-}
-
-bool Permission::GidInGroup(uint16_t gid) {
-    auto gids = option_.gids;
-    return std::find(gids.begin(), gids.end(), gid) != gids.end();
-}
-
-CURVEFS_ERROR Permission::GetFilePermission(const InodeAttr& attr) {
-    uint16_t mode = attr.mode();
-    if (attr.uid == option_.uid) {
-        mode = mode >> 6;
-    } else if (GidInGroup(attr.gid)) {
-        mode = mode >> 3;
-    }
-    return mode & 7;
-}
-
-uint16_t Permission::GetExpectPermission(uint32_t flags) {
+uint16_t Permission::WantPermission(uint32_t flags) {
     uint16_t want = 0;
     swicth(flags & O_ACCMODE) {
         case O_RDONLY:
@@ -79,6 +52,41 @@ uint16_t Permission::GetExpectPermission(uint32_t flags) {
         want |= WANT_WRITE;
     }
     return want;
+}
+
+bool Permission::IsSuperUser(uint16_t uid) {
+    return uid == 0;
+}
+
+bool Permission::IsFileOwner(const InodeAttr& file) {
+    return userPerm_.uid == file.uid();
+}
+
+bool Permission::GidInGroup(uint16_t gid) {
+    auto gids = userPerm_.gids;
+    return std::find(gids.begin(), gids.end(), gid) != gids.end();
+}
+
+uint16_t Permission::GetFilePermission(const InodeAttr& file) {
+    uint16_t mode = file.mode();
+    if (userPerm_.uid == file.uid()) {
+        mode = mode >> 6;
+    } else if (GidInGroup(file.gid())) {
+        mode = mode >> 3;
+    }
+    return mode & 7;
+}
+
+CURVEFS_ERROR Permission::Check(const InodeAttr& file, uint16_t want) {
+    if (IsSuperUser(userPerm_.uid)) {
+        return CURVEFS_ERROR::OK;
+    }
+
+    auto perm = GetFilePermission(file);
+    if ((perm & want) != want) {
+        return CURVEFS_ERROR::NO_PERMISSION;
+    }
+    return CURVEFS_ERROR::OK;
 }
 
 }  // namespace vfs
