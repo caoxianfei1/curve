@@ -92,9 +92,7 @@ static void setup_field_ids(JNIEnv* env) {
 
 static void fill_curvestat(JNIEnv* env,
                            jobject j_curvestat,
-                           struct stat* stat,
-                           jstring owner,
-                           jstring group) {
+                           struct stat* stat) {
     env->SetIntField(j_curvestat, curvestat_mode_fid, stat->st_mode);
     env->SetIntField(j_curvestat, curvestat_uid_fid, stat->st_uid);
     env->SetIntField(j_curvestat, curvestat_gid_fid, stat->st_gid);
@@ -102,17 +100,7 @@ static void fill_curvestat(JNIEnv* env,
     env->SetLongField(j_curvestat, curvestat_blksize_fid, stat->st_blksize);
     env->SetLongField(j_curvestat, curvestat_blocks_fid, stat->st_blocks);
 
-    const char *c_owner = env->GetStringUTFChars(owner, NULL);
-    const char* c_group = env->GetStringUTFChars(group, NULL);
-
     jclass curvestat_class = env->GetObjectClass(j_curvestat);
-    jfieldID owner_fid = env->GetFieldID(curvestat_class, "owner", "Ljava/lang/String;");
-    jfieldID group_fid = env->GetFieldID(curvestat_class, "group", "Ljava/lang/String;");
-    env->SetObjectField(j_curvestat, owner_fid, env->NewStringUTF(c_owner));
-    env->SetObjectField(j_curvestat, group_fid, env->NewStringUTF(c_group));
-
-    env->ReleaseStringUTFChars(owner, c_owner);
-    env->ReleaseStringUTFChars(group, c_group);
     // mtime
     uint64_t time = stat->st_mtim.tv_sec;
     time *= 1000;
@@ -476,25 +464,6 @@ JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurveFSUnlink
     return rc;
 }
 
-//  nativeSetOwner: curvefs_setowner
-JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_CurveMount_nativeSetOwner
-  (JNIEnv *env, jclass, jlong j_instance, jstring j_path, jstring j_user, jstring j_group) {
-    uintptr_t instance = static_cast<uintptr_t>(j_instance);
-    const char* path = env->GetStringUTFChars(j_path, NULL);
-    const char* user = env->GetStringUTFChars(j_user, NULL);
-    const char* group = env->GetStringUTFChars(j_group, NULL);
-    auto defer = absl::MakeCleanup([&]() {
-        env->ReleaseStringUTFChars(j_path, path);
-        env->ReleaseStringUTFChars(j_user, user);
-        env->ReleaseStringUTFChars(j_group, group);
-    });
-    int rc = curvefs_setowner(instance, path, user, group);
-    if (rc != 0) {
-        handle_error(env, rc);
-    }
-    return rc;
-}
-
 // nativeCurveFSFStat: curvefs_fstat
 JNIEXPORT jint
 JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurveFSFStat
@@ -510,12 +479,7 @@ JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurveFSFStat
         return rc;
     }
 
-    // get owner & group
-    std::string owner = curvefs_lookup_owner(instance, stat.st_uid);
-    std::string group = curvefs_lookup_group(instance, stat.st_gid);
-    jstring jowner = env->NewStringUTF(owner.c_str());
-    jstring jgroup = env->NewStringUTF(group.c_str());
-    fill_curvestat(env, j_curvestat, &stat, jowner, jgroup);
+    fill_curvestat(env, j_curvestat, &stat);
     return rc;
 }
 
@@ -556,13 +520,7 @@ JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurveFSLstat
         return rc;
     }
 
-    // get owner & group
-    std::string owner = curvefs_lookup_owner(instance, stat.st_uid);
-    std::string group = curvefs_lookup_group(instance, stat.st_gid);
-    jstring jowner = env->NewStringUTF(owner.c_str());
-    jstring jgroup = env->NewStringUTF(group.c_str());
-
-    fill_curvestat(env, j_curvestat, &stat, jowner, jgroup);
+    fill_curvestat(env, j_curvestat, &stat);
     return rc;
 }
 
@@ -664,6 +622,23 @@ JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurveFSChmod
         handle_error(env, rc);
     }
     return rc;
+}
+
+// nativeCurveFSChown: curvefs_chown
+JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurveFSChown
+  (JNIEnv *env, jclass, jlong j_instance, jstring j_path, jint uid, jint gid) {
+    uintptr_t instance = static_cast<uintptr_t>(j_instance);
+    const char* path = env->GetStringUTFChars(j_path, NULL);
+    uint16_t uid = static_cast<uint16_t>(j_uid);
+    uint16_t gid = static_cast<uint16_t>(j_gid);
+    
+    auto defer = absl::MakeCleanup([&]() {
+        env->ReleaseStringUTFChars(j_path, path);
+    });
+    int rc = curvefs_chown(instance, path, uid, gid);
+    if (rc != 0) {
+        handle_error(env, rc);
+    }
 }
 
 // nativeCurveFSRename: curvefs_rename

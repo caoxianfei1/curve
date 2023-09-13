@@ -201,6 +201,14 @@ JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurve
 
 /*
  * Class:     io_opencurve_curve_fs_libfs_CurveFSMount
+ * Method:    nativeCurveFSChown
+ * Signature: (JLjava/lang/String;II)I
+ */
+JNIEXPORT jint JNICALL Java_io_opencurve_curve_fs_libfs_CurveFSMount_nativeCurveFSChown
+  (JNIEnv *, jclass, jlong, jstring, jint, jint);
+
+/*
+ * Class:     io_opencurve_curve_fs_libfs_CurveFSMount
  * Method:    nativeCurveFSRename
  * Signature: (JLjava/lang/String;Ljava/lang/String;)I
  */

@@ -14,6 +14,7 @@ import io.opencurve.curve.fs.libfs.CurveFSStatVFS;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URI;
+import java.security.NoSuchAlgorithmException;
 import java.util.Map;
 
 class CurveFSTalker extends CurveFSProto {
@@ -170,15 +171,15 @@ class CurveFSTalker extends CurveFSProto {
   }
 
   int setguids(String name, String user, String grouping, String superUser, String superGroup, short umask) {
-    int rc = (int)mount.setguids(name, user, grouping, superUser, superGroup, umask);
+    int rc = (int)mount.setGuids(name, user, grouping, superUser, superGroup, umask);
     return rc;
   }
 
   int updateguids(String uids, String grouping) {
-    return (int)mount.updateguids(uids, grouping);
+    return (int)mount.updateGuids(uids, grouping);
   }
 
-  int setowner(Path path, String username, String groupname) throws IOException {
-    return mount.setowner(pathString(path), username, groupname);
+  void chown(Path path, String username, String groupname) throws IOException, NoSuchAlgorithmException {
+    mount.chown(pathString(path), username, groupname);
   }
 }

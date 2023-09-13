@@ -1,6 +1,16 @@
 package io.opencurve.curve.fs.libfs;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Scanner;
+import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.HashMap;
 
 public class CurveFSMount {
     // init
@@ -26,7 +36,8 @@ public class CurveFSMount {
     private static native int nativeCurveFSLstat(long instancePtr, String path, CurveFSStat stat);
     private static native int nativeCurveFSFStat(long instancePtr, int fd, CurveFSStat stat);
     private static native int nativeCurveFSSetAttr(long instancePtr, String path, CurveFSStat stat, int mask);
-    private static native int nativeCurveFSChmod(long instancePtr, String path, int mode);
+    private static native int nativeCurveFSChmod(long instancePtr, String path, int mode);    
+    private static native int nativeCurveFSChown(long instancePtr, String path, int uid, int gid);
     private static native int nativeCurveFSRename(long instancePtr, String src, String dst);
 
     /*
@@ -65,9 +76,81 @@ public class CurveFSMount {
 
     private static final String CURVEFS_DEBUG_ENV_VAR = "CURVEFS_DEBUG";
     private static final String CLASS_NAME = "io.opencurve.curve.fs.CurveFSMount";
+    private static final String PERMISSSION_UID = "vfs.permission.uid";    
+    private static final String PERMISSSION_GIDS = "vfs.permission.gids";
+    private static final String PERMISSSION_UMASK = "vfs.permission.umask";
 
     private long instancePtr;
     private boolean initialized = false;
+    
+    private Mapping mapping;
+    private String user;
+    private String group;
+    private String superUser;
+    private String superGroup;
+    private short umask;
+
+    private int uid;
+    private int gid;
+    private ArrayList<Integer> gids;
+
+    private boolean isSuperUser(String pUser, ArrayList<String> pGroups) {
+        if (pUser == this.superUser) {
+            return true;
+        }
+        for (int i = 0; i < pGroups.size(); i++) {
+            if (pGroups.get(i) == this.superGroup) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private int lookupUid(String pUser) throws NoSuchAlgorithmException, IOException {
+        if (pUser == this.superUser) {
+            return 0;
+        }
+        return mapping.lookupUser(pUser);
+    }
+
+    private int lookupGid(String pGroup) throws NoSuchAlgorithmException, IOException {
+        if (pGroup == this.superGroup) {
+            return 0;
+        }
+        return mapping.lookupGroup(pGroup);
+    }
+
+    private String uid2name(int pUid) throws IOException {
+        String name = this.superUser;
+        if (pUid > 0) {
+            name = mapping.lookupUserID(pUid);
+        }
+        return name;
+    }
+
+    private String gid2name(int pGid) throws IOException {
+        String name = this.superGroup;
+        if (pGid > 0) {
+            name = mapping.lookupGroupID(pGid);
+        }
+        return name;
+    }
+
+    private ArrayList<Integer> lookupGids(ArrayList<String> pGroups) throws NoSuchAlgorithmException, IOException {
+        ArrayList<Integer> tmpGids = new ArrayList<>();
+        for (int i = 0; i < pGroups.size(); i++) {
+            tmpGids.add(lookupGid(pGroups.get(i)));
+        }
+        return tmpGids;
+    }
+
+    private void setVFSPermission() {
+        String gids = String.join(",", 
+            this.gids.stream().map(String::valueOf).collect(Collectors.toList()));
+        confSet(PERMISSSION_UID, String.valueOf(this.uid));
+        confSet(PERMISSSION_GIDS, gids);
+        confSet(PERMISSSION_UMASK, String.valueOf(this.umask));
+    }
 
     private static void accessLog(String name, String... args) {
         String value = System.getenv(CURVEFS_DEBUG_ENV_VAR);
@@ -183,6 +266,8 @@ public class CurveFSMount {
     public void lstat(String path, CurveFSStat stat) throws IOException {
         accessLog("lstat", path.toString());
         nativeCurveFSLstat(instancePtr, path, stat);
+        stat.owner = uid2name(stat.uid);
+        stat.group = gid2name(stat.gid);
     }
 
     public void fstat(int fd, CurveFSStat stat) throws IOException {
@@ -200,8 +285,91 @@ public class CurveFSMount {
         nativeCurveFSChmod(instancePtr, path, mode);
     }
 
+    public void chown(String path, String user, String group) throws IOException, NoSuchAlgorithmException {
+        accessLog("chown", path.toString(), user.toString(), group.toString());
+        nativeCurveFSChown(instancePtr, path, lookupUid(user), lookupGid(group));
+    }
+
     public void rename(String src, String dst) throws IOException {
         accessLog("rename", src.toString(), dst.toString());
         nativeCurveFSRename(instancePtr, src, dst);
+    }
+
+    public void setGuids(String name, String pUser, String pGrouping, String pSuperUser, String pSuperGroup, short pUmask) throws IOException, NoSuchAlgorithmException {
+        accessLog("setGuids", name, pUser, pGrouping, pSuperUser, pSuperGroup, String.valueOf(pUmask));
+        this.user = pUser;
+        this.group = pGrouping;
+        this.superUser = pSuperUser;
+        this.superGroup = pSuperGroup;
+        this.umask = pUmask;
+        this.gids = new ArrayList<>();
+
+        this.mapping = new Mapping(name);
+        String[] groupsArr = pGrouping.split(",");
+        ArrayList<String> groups = new ArrayList<>(Arrays.asList(groupsArr));
+        if (isSuperUser(pUser, groups)) {
+            this.uid = 0;
+            this.gid = 0;
+            this.gids.add(0);
+        } else {
+            this.uid = lookupUid(pUser);
+            this.gids = lookupGids(groups);
+            if (this.gids.size() > 0) {
+                this.gid = this.gids.get(0);
+            }
+        }
+
+        setVFSPermission();
+    }
+
+    public void updateGuids(String uidStr, String grouping) throws NoSuchAlgorithmException, IOException {
+        Map<String, Integer> uids = new HashMap<String, Integer>();        
+        Map<String, Integer> groupIds = new HashMap<String, Integer>();
+        ArrayList<String> groups = new ArrayList<>();
+
+        if (!uidStr.isEmpty() && !"".equals(uidStr.trim())) {
+            Scanner scanner = new Scanner(uidStr);
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                String[] tokens = line.split(":");
+                if (tokens.length < 2) {
+                    continue;
+                }
+                String username = tokens[0];
+                String uid = tokens[1];
+                uids.put(username, Integer.parseInt(uid));
+            }
+            scanner.close();
+        }
+        
+        if (!grouping.isEmpty() && !"".equals(grouping.trim())) {
+            Scanner scanner = new Scanner(grouping);
+            while (scanner.hasNextLine()) {
+                String line = scanner.nextLine();
+                String[] tokens = line.split(":");
+                if (tokens.length < 2) {
+                    continue;
+                }
+                String groupname = tokens[0];
+                String gid = tokens[1];
+                groupIds.put(groupname, Integer.parseInt(gid));
+                if (tokens.length > 2) {
+                    String[] users = tokens[3].split(",");
+                    for (int i = 0; i < users.length; i++) {
+                        if (user == users[i]) {
+                            groups.add(groupname);
+                        }
+                    }
+                }
+            }
+            scanner.close();
+        }
+        mapping.update(uids, groupIds, false);
+        this.uid = lookupUid(this.user);
+        if (groups.size() > 0) {
+            this.gids = lookupGids(groups);
+        }
+
+        setVFSPermission();
     }
 }

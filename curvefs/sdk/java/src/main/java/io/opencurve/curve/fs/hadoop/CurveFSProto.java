@@ -41,5 +41,5 @@ abstract class CurveFSProto {
 
   abstract int setguids(String name, String user, String grouping, String superUser, String superGroup, short umask);
   abstract int updateguids(String uids, String grouping);
-  abstract int setowner(Path path, String username, String groupname) throws IOException;
+  abstract void chown(Path path, String username, String groupname) throws IOException;
 }

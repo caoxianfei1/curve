@@ -626,9 +626,6 @@ public class CurveFileSystem extends FileSystem {
 
     @Override
     public void setOwner(Path path, String username, String groupname) throws IOException {
-        int rc = curve.setowner(path, username, groupname);
-        if (rc < 0) {
-            throw new IOException("set owner failed" + path + " username=" + username + " group=" + groupname);
-        }
+        curve.chown(path, username, groupname);
     }
 }

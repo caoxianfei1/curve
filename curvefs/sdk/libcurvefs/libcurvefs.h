@@ -99,17 +99,6 @@ int curvefs_mount(uintptr_t instance_ptr,
                   const char* fsname,
                   const char* mountpoint);
 
-int curvefs_set_guids(uintptr_t instance_ptr, 
-                            const char* name,
-                            const char* user, 
-                            const char* grouping,
-                            const char* superuser,
-                            const char* supergroup,
-                            uint16_t umask);
-
-int curvefs_update_guids(uintptr_t instance_ptr, 
-                            const char* uidStr,
-                            const char* grouping);
 
 int curvefs_umonut(uintptr_t instance_ptr);
 
@@ -175,14 +164,10 @@ int curvefs_rename(uintptr_t instance_ptr,
                    const char* oldpath,
                    const char* newpath);
 
-int curvefs_setowner(uintptr_t instance_ptr,
+int curvefs_chown(uintptr_t instance_ptr,
                     const char* path,
-                    const char* user,
-                    const char* group);
-
-std::string curvefs_lookup_owner(uintptr_t instance_ptr, uint32_t uid);
-
-std::string curvefs_lookup_group(uintptr_t instance_ptr, uint32_t gid);
+                    uint16_t uid,
+                    uint16_t gid);
 
 #ifdef __cplusplus
 }
